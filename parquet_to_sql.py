@@ -3,6 +3,7 @@ import numpy as np
 import math
 import time, timeit
 import argparse
+import os
 
 from sqlalchemy import create_engine
 
@@ -16,9 +17,14 @@ def main(params):
     table_name = params.table_name
     url = params.url
 
-    engine = create_engine("postgresql://root:root@localhost:5432/ny_taxi")
+    csv_name = "output.csv"
 
-    df = pd.read_parquet("./yellow_tripdata_2021-01.parquet")
+    # download csv
+    os.system(f"wget {url} -O {csv_name}")
+
+    engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{db}")
+
+    df = pd.read_parquet(csv_name)
 
     df = df.rename(
         {
@@ -42,11 +48,11 @@ def main(params):
 
     df_chunks = np.array_split(df, math.ceil(df.shape[0] / n_chunks))
 
-    df.head(0).to_sql(name="yellow_taxi_data", con=engine, if_exists="replace")
+    df.head(0).to_sql(name=table_name, con=engine, if_exists="replace")
 
     for each in df_chunks:
         start = time.time()
-        each.to_sql(name="yellow_taxi_data", con=engine, if_exists="append")
+        each.to_sql(name=table_name, con=engine, if_exists="append")
         end = time.time()
 
         print(f"pushed a chunk.......{end - start:.3f}s")
@@ -57,23 +63,25 @@ pd.set_option("display.max_column", 10)
 
 n_chunks = 100000
 
-parser = argparse.ArgumentParser(description="Ingest Parquet to PostGreSQL")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Ingest Parquet to PostGreSQL")
 
-# user
-# password
-# host
-# port
-# database name
-# table name
-# url of the csv
+    # user
+    # password
+    # host
+    # port
+    # database name
+    # table name
+    # url of the csv
 
-parser.add_argument("user", help="user for PostGres")
-parser.add_argument("password", help="password for PostGres")
-parser.add_argument("host", help="host for PostGres")
-parser.add_argument("port", help="port for PostGres")
-parser.add_argument("db", help="database name for PostGres")
-parser.add_argument("table_name", help="table name for PostGres")
-parser.add_argument("url", help="url of the csv for PostGres")
+    parser.add_argument("--user", help="user for PostGres")
+    parser.add_argument("--password", help="password for PostGres")
+    parser.add_argument("--host", help="host for PostGres")
+    parser.add_argument("--port", help="port for PostGres")
+    parser.add_argument("--db", help="database name for PostGres")
+    parser.add_argument("--table_name", help="table name for PostGres")
+    parser.add_argument("--url", help="url of the csv for PostGres")
 
-args = parser.parse_args()
-print(args.accumulate(args.integers))
+    args = parser.parse_args()
+
+    main(args)

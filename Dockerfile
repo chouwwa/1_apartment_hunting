@@ -1,9 +1,9 @@
 FROM python:3.9-slim-bullseye
 
-RUN pip install pandas
-RUN docker pull dpage/pgadmin4
+RUN apt-get install -y wget
+RUN pip install pandas sqlalchemy psycopg psycopg2-binary pyarrow
 
 WORKDIR /app
-COPY pipeline.py pipeline.py
+COPY parquet_to_sql.py parquet_to_sql.py
 
-ENTRYPOINT [ "python", "pipeline.py" ]
+ENTRYPOINT [ "python", "parquet_to_sql.py" ]

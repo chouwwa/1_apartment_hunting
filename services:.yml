@@ -38,9 +38,15 @@ docker run -it \
 
 docker network create pg-network
 
-docker start -it pg-database
+## DB Start
 
-docker start -it pgadmin
+docker start -i pg-database
+
+docker start -i pgadmin
+
+## Ingest from ${URL}
+
+docker start -i taxi_ingest
 
 docker run -it \
   -e POSTGRES_USER="root" \
@@ -59,3 +65,29 @@ docker run -it \
   --network pg-network \
   --name pgadmin \
   dpage/pgadmin4
+
+
+URL="https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2021-01.parquet"
+python parquet_to_sql.py \
+  --user=root \
+  --password=root \
+  --host=localhost \
+  --port=5432 \
+  --db=ny_taxi \
+  --table_name=yellow_taxi_data \
+  --url=${URL}
+
+docker build -t taxi_ingest:v1.0.0 .
+
+docker run -it \
+  --network pg-network \
+  --name taxi_ingest \
+  taxi_ingest:v1.0.0 \
+    --user=root \
+    --password=root \
+    --host=pg-database \
+    --port=5432 \
+    --db=ny_taxi \
+    --table_name=yellow_taxi_data \
+    --url=${URL}
+    
