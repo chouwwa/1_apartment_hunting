@@ -90,4 +90,5 @@ docker run -it \
     --db=ny_taxi \
     --table_name=yellow_taxi_data \
     --url=${URL}
-    
+
+docker compose up
