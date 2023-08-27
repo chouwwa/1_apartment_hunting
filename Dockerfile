@@ -1,6 +1,7 @@
 FROM python:3.9-slim-bullseye
 
-RUN apt-get install -y wget
+RUN apt-get update \
+    && apt-get install -y wget
 RUN pip install pandas sqlalchemy psycopg psycopg2-binary pyarrow
 
 WORKDIR /app

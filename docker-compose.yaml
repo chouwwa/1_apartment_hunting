@@ -16,11 +16,31 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin
     ports:
       - 8080:80
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9090"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    volumes:
+      - minio_data:/data
+    ports:
+      - 9090:9090
+      - 9000:9000
 
+# volumes:
+#   ny_taxi_postgres_data:
+#   minio_data:
 volumes:
   ny_taxi_postgres_data:
     driver: local
     driver_opts:
       type: 'none'
       o: 'bind'
-      device: './ny_taxi_postgres_data'
+      device: ./ny_taxi_postgres_data
+  minio_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: ./minio/data
