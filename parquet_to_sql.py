@@ -6,9 +6,20 @@ import argparse
 import os
 
 from sqlalchemy import create_engine
+from prefect import flow, task
 
 
-def main(params):
+@task(name="PG Connection")
+def connection(params):
+    """Takes in parameters, creates pg enginer and returns table_name, url, n_chunks, engine
+
+    Args:
+        params (tuple): user, password, host, port, db, table_name, url, n_chunks
+
+    Returns:
+        tuple: table_name, url, n_chunks, engine
+    """
+
     user = params.user
     password = params.password
     host = params.host
@@ -16,14 +27,28 @@ def main(params):
     db = params.db
     table_name = params.table_name
     url = params.url
+    n_chunks = params.chunks
 
-    csv_name = "output.csv"
+    engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{db}")
+
+    return table_name, url, n_chunks, engine
+
+
+@task(name="Download CSV")
+def download_csv(url, csv_name):
+    """wgets url and output into output.csv
+
+    Args:
+        url (str): valid url whole address
+    """
+    # csv_name = "output.csv"
 
     # download csv
     os.system(f"wget {url} -O {csv_name}")
 
-    engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{db}")
 
+@task
+def clean_taxi(csv_name):
     df = pd.read_parquet(csv_name)
 
     df = df.rename(
@@ -46,24 +71,35 @@ def main(params):
     col_astype("pulocationid", pd.Int16Dtype())
     col_astype("dolocationid", pd.Int16Dtype())
 
-    df_chunks = np.array_split(df, math.ceil(df.shape[0] / n_chunks))
+    return df
 
+
+@task(log_prints=True, retries=3)
+def ingest_data(df, table_name, n_chunks, engine):
     df.head(0).to_sql(name=table_name, con=engine, if_exists="replace")
 
-    for each in df_chunks:
+    if n_chunks:
+        df_chunks = np.array_split(df, math.ceil(df.shape[0] / n_chunks))
+        for each in df_chunks:
+            start = time.time()
+            each.to_sql(name=table_name, con=engine, if_exists="append")
+            end = time.time()
+
+            print(f"pushed a chunk.......{end - start:.3f}s")
+    else:
         start = time.time()
-        each.to_sql(name=table_name, con=engine, if_exists="append")
+        df.to_sql(name=table_name, con=engine, if_exists="replace")
         end = time.time()
 
-        print(f"pushed a chunk.......{end - start:.3f}s")
+        print(f"finished in.......{end - start:.3f}s")
 
 
 pd.set_option("display.max_rows", 15)
 pd.set_option("display.max_column", 10)
 
-n_chunks = 100000
 
-if __name__ == "__main__":
+@flow(name="Ingest Flow")
+def main():
     parser = argparse.ArgumentParser(description="Ingest Parquet to PostGreSQL")
 
     # user
@@ -73,6 +109,7 @@ if __name__ == "__main__":
     # database name
     # table name
     # url of the csv
+    # number of chunks, default 100000
 
     parser.add_argument("--user", help="user for PostGres")
     parser.add_argument("--password", help="password for PostGres")
@@ -81,7 +118,17 @@ if __name__ == "__main__":
     parser.add_argument("--db", help="database name for PostGres")
     parser.add_argument("--table_name", help="table name for PostGres")
     parser.add_argument("--url", help="url of the csv for PostGres")
+    parser.add_argument("--chunks", help="url of the csv for PostGres", default=0)
 
     args = parser.parse_args()
 
-    main(args)
+    csv_name = "output.csv"
+
+    table_name, url, n_chunks, engine = connection(args)
+    download_csv(url, csv_name)
+    df = clean_taxi(csv_name)
+    ingest_data(df, table_name, n_chunks, engine)
+
+
+if __name__ == "__main__":
+    main()
