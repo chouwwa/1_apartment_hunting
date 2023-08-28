@@ -82,8 +82,8 @@ python parquet_to_sql.py \
 docker build -t taxi_ingest:v1.0.0 .
 
 docker run -it \
-  --network pg-network \
-  --name taxi_ingest \
+  --network=1_apartment_hunting_default \
+  --name=taxi_ingest \
   taxi_ingest:v1.0.0 \
     --user=root \
     --password=root \
