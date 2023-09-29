@@ -79,12 +79,12 @@ python parquet_to_sql.py \
   --table_name=yellow_taxi_data \
   --url=${URL}
 
-docker build -t taxi_ingest:v1.0.0 .
+docker build -t taxi_ingest:v2.0.0 .
 
 docker run -it \
   --network=1_apartment_hunting_default \
   --name=taxi_ingest \
-  taxi_ingest:v1.0.0 \
+  taxi_ingest:v2.0.0 \
     --user=root \
     --password=root \
     --host=pg-database \
